@@ -74,11 +74,16 @@ lms_control_panel/
 │   ├── base_client.py      # Base API client with common functionality
 │   ├── course_client.py    # Course-specific API methods
 │   ├── assignment_client.py # Assignment-specific API methods
-│   └── user_client.py      # User-specific API methods
+│   ├── user_client.py      # User-specific API methods
+│   └── auth_client.py      # Authentication-specific API methods
+├── models/
+│   ├── __init__.py
+│   └── user.py             # User model for authentication
 ├── templates/
 │   ├── base.html           # Base template with common layout
 │   ├── dashboard.html      # Main dashboard page
-│   └── login.html          # Login page
+│   ├── login.html          # Login page
+│   └── users.html          # User management page
 ├── static/
 │   ├── css/
 │   │   └── custom.css      # Custom CSS (if needed beyond Tailwind)

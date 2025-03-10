@@ -6,6 +6,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}LMS Control Panel{% endblock %}</title>
+    <!-- Favicon -->
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Alpine.js for interactive components -->
@@ -36,9 +38,10 @@
                     </div>
                 </div>
                 <div class="flex items-center">
-                    {% if session.get('user_id') %}
+                    {% if current_user.is_authenticated %}
                     <div class="flex items-center">
-                        <span class="text-white mr-4">Welcome, User</span>
+                        <span class="text-white mr-4">Welcome, {{ current_user.username }}{% if current_user.is_admin %}
+                            (Admin){% endif %}</span>
                         <a href="/logout"
                             class="bg-indigo-700 hover:bg-indigo-800 text-white px-3 py-2 rounded-md text-sm font-medium">Logout</a>
                     </div>
