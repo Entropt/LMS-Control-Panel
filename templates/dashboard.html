@@ -1,0 +1,196 @@
+<!-- templates/dashboard.html -->
+{% extends "base.html" %}
+
+{% block title %}Dashboard | LMS Control Panel{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg" x-data="{ 
+    courses: [],
+    exercises: [],
+    selectedCourse: null,
+    loading: true,
+    exercisesLoading: false,
+    
+    init() {
+        this.fetchCourses();
+    },
+    
+    fetchCourses() {
+        this.loading = true;
+        fetch('/api/courses')
+            .then(response => response.json())
+            .then(data => {
+                this.courses = data;
+                this.loading = false;
+            })
+            .catch(error => {
+                console.error('Error fetching courses:', error);
+                this.loading = false;
+            });
+    },
+    
+    selectCourse(course) {
+        this.selectedCourse = course;
+        this.fetchExercises(course.id);
+    },
+    
+    fetchExercises(courseId) {
+        this.exercisesLoading = true;
+        fetch(`/api/courses/${courseId}/exercises`)
+            .then(response => response.json())
+            .then(data => {
+                this.exercises = data;
+                this.exercisesLoading = false;
+            })
+            .catch(error => {
+                console.error('Error fetching exercises:', error);
+                this.exercisesLoading = false;
+            });
+    }
+}">
+    <div class="px-4 py-5 sm:p-6">
+        <h1 class="text-2xl font-bold text-gray-900 mb-6">LMS Dashboard</h1>
+        
+        <!-- Main grid layout -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Course list panel -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="p-4 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-lg font-medium text-gray-900">Your Courses</h2>
+                        <button @click="fetchCourses()" class="text-sm text-indigo-600 hover:text-indigo-900">
+                            Refresh
+                        </button>
+                    </div>
+                    
+                    <!-- Search box -->
+                    <div class="mt-4">
+                        <div class="relative rounded-md shadow-sm">
+                            <input type="text" placeholder="Search courses..." class="w-full rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Loading indicator -->
+                <div x-show="loading" class="p-4 flex justify-center">
+                    <svg class="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+                
+                <!-- Course list -->
+                <div x-show="!loading" class="overflow-y-auto max-h-96">
+                    <ul class="divide-y divide-gray-200">
+                        <template x-for="course in courses" :key="course.id">
+                            <li class="p-4 hover:bg-gray-50 cursor-pointer" 
+                                :class="{'bg-indigo-50': selectedCourse && selectedCourse.id === course.id}"
+                                @click="selectCourse(course)">
+                                <div class="flex justify-between">
+                                    <div>
+                                        <h3 class="text-sm font-medium text-gray-900" x-text="course.name"></h3>
+                                        <p class="text-sm text-gray-500" x-text="'Code: ' + course.course_code"></p>
+                                    </div>
+                                    <div>
+                                        <span x-show="course.workflow_state === 'available'" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                            Available
+                                        </span>
+                                        <span x-show="course.workflow_state !== 'available'" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800" x-text="course.workflow_state">
+                                        </span>
+                                    </div>
+                                </div>
+                            </li>
+                        </template>
+                        <!-- Empty state -->
+                        <li x-show="courses.length === 0 && !loading" class="p-4 text-center text-gray-500">
+                            No courses found
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Exercise list and details panel -->
+            <div class="bg-white rounded-lg shadow md:col-span-2">
+                <div x-show="!selectedCourse" class="flex flex-col items-center justify-center p-12 h-full">
+                    <svg class="h-16 w-16 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                    </svg>
+                    <p class="mt-2 text-gray-500">Select a course to view exercises</p>
+                </div>
+                
+                <div x-show="selectedCourse" class="p-4">
+                    <div class="flex justify-between items-center border-b border-gray-200 pb-4">
+                        <h2 class="text-lg font-medium text-gray-900" x-text="selectedCourse ? selectedCourse.title + ' Exercises' : ''"></h2>
+                        <div class="flex space-x-2">
+                            <select class="rounded-md border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <option>All Status</option>
+                                <option>Active</option>
+                                <option>Draft</option>
+                                <option>Archived</option>
+                            </select>
+                            <button @click="fetchExercises(selectedCourse.id)" class="text-sm text-indigo-600 hover:text-indigo-900">
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Loading indicator for exercises -->
+                    <div x-show="exercisesLoading" class="p-4 flex justify-center">
+                        <svg class="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                    
+                    <!-- Exercise table -->
+                    <div x-show="!exercisesLoading" class="mt-4 overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Points</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <template x-for="exercise in exercises" :key="exercise.id">
+                                    <tr class="hover:bg-gray-50 cursor-pointer">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm font-medium text-gray-900" x-text="exercise.title"></div>
+                                            <div class="text-xs text-gray-500" x-text="exercise.submission_types ? exercise.submission_types.join(', ') : ''"></div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-500" x-text="exercise.points_possible + ' pts'"></div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-500" x-text="exercise.due_date ? new Date(exercise.due_date).toLocaleDateString() : 'No due date'"></div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                                                  :class="{
+                                                      'bg-green-100 text-green-800': exercise.status === 'Active',
+                                                      'bg-yellow-100 text-yellow-800': exercise.status === 'Draft',
+                                                      'bg-gray-100 text-gray-800': exercise.status === 'Archived'
+                                                  }"
+                                                  x-text="exercise.status">
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </template>
+                                
+                                <!-- Empty state -->
+                                <tr x-show="exercises.length === 0 && !exercisesLoading">
+                                    <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">
+                                        No exercises found for this course
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,34 @@
+Nhiệm vụ:
+- Tạo ra một nền tảng hỗ trợ biệt lập riêng không liên quan đến Juice shop và CTFd (để có thể update thêm content mới cho Juice Shop do dự án được maintain thường xuyên)
+- Tự động hóa quá trình quản lý qua việc chạy script hoặc tương tác qua GUI.
+
+Quy tắc generate flag:
+tại file "juice-shop-ctf/lib/generators/fbctf.js" dòng 89:
+      flag: hmac(ctfKey, name),
+
+-> ctfKey sẽ quyết định -> Tạo ra dynamic flag cho CTFd
+
+Những việc đã làm được:
+- Dựng được môi trường Juice shop ở máy cá nhân
+- Tìm hiểu về các phương pháp quản lý dùng API của Juice shop (API call tới các challenge để xem tiến độ hoàn thành, API call đến để xem các list có coding challenge, ...)
+- Dựng được môi trường CTFd dựa trên nền tảng là Juice Shop và nhận thấy một số vấn đề - không có flag cho coding challenge.
+
+Một số vấn đề cần cải tiến:
+- User có quyền truy cập vào bất kỳ instance nào của user khác
+- Thiếu tracker cho audit source code trong ctf
+- Thiếu bộ xử lý cho dynamic flag từ CTFd
+
+"Canvas LMS"
+Demo Có chức năng bài tập -> Tick bài tập rồi redirect vào làm
+
+Học:
+CHọn bài trỏ thẳng đến bài số được chọn.
+Phần mềm học hiểu được là sinh viên đã học.
+
+Thi:
+Có khả năng chọn bài bất kỳ -> Giao đề thi
+Nộp flag
+
+CHương nâng cao:
+1 box -> nhiều thí sinh -> RCE nguy hiểm.
+Thiếu code audit challenge.

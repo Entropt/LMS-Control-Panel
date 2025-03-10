@@ -1,0 +1,71 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html class="h-full" lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}LMS Control Panel{% endblock %}</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js for interactive components -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.10.3/cdn.min.js" defer></script>
+    <!-- Custom styles -->
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body class="bg-gray-50 min-h-screen flex flex-col">
+    <!-- Navigation -->
+    <nav class="bg-indigo-600 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <span class="text-white text-xl font-bold">LMS Control Panel</span>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="/"
+                            class="inline-flex items-center justify-center text-white hover:text-indigo-100 px-3 py-2 rounded-md text-sm font-medium">Dashboard</a>
+                        <a href="/courses"
+                            class="inline-flex items-center justify-center text-white hover:text-indigo-100 px-3 py-2 rounded-md text-sm font-medium">Courses</a>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    {% if session.get('user_id') %}
+                    <div class="flex items-center">
+                        <span class="text-white mr-4">Welcome, User</span>
+                        <a href="/logout"
+                            class="bg-indigo-700 hover:bg-indigo-800 text-white px-3 py-2 rounded-md text-sm font-medium">Logout</a>
+                    </div>
+                    {% else %}
+                    <a href="/login"
+                        class="bg-indigo-700 hover:bg-indigo-800 text-white px-3 py-2 rounded-md text-sm font-medium">Login</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <main class="flex-grow max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white shadow-inner mt-8 py-4">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <p class="text-center text-gray-500 text-sm">
+                LMS Control Panel &copy; 2025
+            </p>
+        </div>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

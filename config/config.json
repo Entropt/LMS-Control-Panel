@@ -1,0 +1,6 @@
+{
+    "api": {
+      "base_url": "http://<your_canvas_lms>/api/v1",
+      "api_key": "<api_key>"
+    }
+  }
