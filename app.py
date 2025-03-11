@@ -1,5 +1,6 @@
 # app.py - Flask application entry point
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
+import base64
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash, Response
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import os
 from datetime import timedelta
@@ -7,7 +8,7 @@ from dotenv import load_dotenv
 from functools import wraps
 
 # Import our modules
-from api import LMSClient
+from api.lms_client import LMSClient
 from models.user import db, User, initialize_db
 from config.settings import load_config
 
@@ -70,13 +71,36 @@ def set_api_token():
 @app.route('/')
 def index():
     """Main dashboard page (redirect based on user role)"""
-    if current_user.is_authenticated:
-        if current_user.is_admin:
-            return redirect(url_for('dashboard'))
-        else:
-            # Regular users get redirected to Juice Shop
-            return redirect(app.config['JUICE_SHOP_URL'])
+    if current_user.is_authenticated and current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
     return redirect(url_for('login'))
+
+# Add these routes to app.py for the JavaScript approach
+
+@app.route('/assignment-login')
+def assignment_login():
+    """Assignment login page using JavaScript approach"""
+    # Get the Juice Shop URL from config
+    juice_shop_url = app.config.get('JUICE_SHOP_URL', 'http://localhost:3000')
+    return render_template('assignment_login.html', juice_shop_url=juice_shop_url)
+
+@app.route('/log-assignment-access', methods=['POST'])
+def log_assignment_access_route():
+    """API endpoint to log assignment access"""
+    if not request.is_json:
+        return jsonify({"error": "Invalid request"}), 400
+        
+    data = request.json
+    username = data.get('username')
+    
+    if not username:
+        return jsonify({"error": "Username is required"}), 400
+    
+    # Log the access (if using tracking)
+    # log_assignment_access(username, request)
+    
+    return jsonify({"success": True})
 
 @app.route('/favicon.ico')
 def favicon():
@@ -97,10 +121,10 @@ def login():
         return redirect(url_for('index'))
         
     if request.method == 'POST':
-        username = request.form.get('username')
+        email = request.form.get('email')
         password = request.form.get('password')
         
-        user = User.query.filter_by(username=username).first()
+        user = User.query.filter_by(email=email).first()
         
         if user and user.check_password(password):
             login_user(user, remember=True)
@@ -112,7 +136,7 @@ def login():
             else:
                 return redirect(app.config['JUICE_SHOP_URL'])
         else:
-            flash('Invalid username or password', 'danger')
+            flash('Invalid email or password', 'danger')
             
     return render_template('login.html')
 

@@ -61,35 +61,36 @@ Then open your browser and navigate to `http://localhost:5000`.
 
 ```
 lms_control_panel/
-├── app.py                  # Flask application entry point
-├── README.md               # Documentation
-├── requirements.txt        # Dependencies
+├── app.py                    # Flask application entry point
+├── README.md                 # Documentation
+├── requirements.txt          # Dependencies
 ├── config/
 │   ├── __init__.py
-│   ├── config.json         # Configuration file (example)
-│   └── settings.py         # Configuration loader
+│   ├── config.json           # Configuration file (example)
+│   └── settings.py           # Configuration loader
 ├── api/
 │   ├── __init__.py
-│   ├── lms_client.py       # Main LMS API client (composite)
-│   ├── base_client.py      # Base API client with common functionality
-│   ├── course_client.py    # Course-specific API methods
-│   ├── assignment_client.py # Assignment-specific API methods
-│   ├── user_client.py      # User-specific API methods
-│   └── auth_client.py      # Authentication-specific API methods
+│   ├── lms_client.py         # Main LMS API client (composite)
+│   ├── base_client.py        # Base API client with common functionality
+│   ├── course_client.py      # Course-specific API methods
+│   ├── assignment_client.py  # Assignment-specific API methods
+│   ├── user_client.py        # User-specific API methods
+│   └── auth_client.py        # Authentication-specific API methods
 ├── models/
 │   ├── __init__.py
-│   └── user.py             # User model for authentication
+│   └── user.py               # User model for authentication
 ├── templates/
-│   ├── base.html           # Base template with common layout
-│   ├── dashboard.html      # Main dashboard page
-│   ├── login.html          # Login page
-│   └── users.html          # User management page
+│   ├── base.html             # Base template with common layout
+│   ├── dashboard.html        # Main dashboard page
+│   ├── login.html            # Login page
+│   └── users.html            # User management page
 ├── static/
 │   ├── css/
-│   │   └── custom.css      # Custom CSS (if needed beyond Tailwind)
-│   └── js/
-│       └── dashboard.js    # Custom JavaScript (if needed beyond Alpine.js)
-└── .env                    # Environment variables (add to .gitignore)
+│   │   └── custom.css        # Custom CSS (if needed beyond Tailwind)
+│   ├── js/
+│   │   └── dashboard.js      # Custom JavaScript (if needed beyond Alpine.js)
+|   └── favicon.ico           # Icon for the LMS control panel
+└── .env                      # Environment variables (add to .gitignore)
 ```
 
 ## Extending the Application
@@ -104,10 +105,6 @@ lms_control_panel/
 
 For more information on the Canvas LMS API, see:
 - [Canvas LMS API Documentation](https://canvas.instructure.com/doc/api/)
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 

@@ -57,17 +57,15 @@ def initialize_db(app) -> None:
         # Check if any user exists
         if User.query.count() == 0:
             # Create default admin user
-            admin_username = os.getenv('ADMIN_USERNAME', 'admin')
-            admin_email = os.getenv('ADMIN_EMAIL', 'admin@example.com')
-            admin_password = os.getenv('ADMIN_PASSWORD', 'adminpassword')
-            admin_token = os.getenv('ADMIN_CANVAS_TOKEN', '')
+            admin_username = os.getenv('ADMIN_USERNAME')
+            admin_email = os.getenv('ADMIN_EMAIL')
+            admin_password = os.getenv('ADMIN_PASSWORD')
             
             admin = User(
                 username=admin_username,
                 email=admin_email,
                 password=admin_password,
-                is_admin=True,
-                canvas_api_token=admin_token
+                is_admin=True
             )
             
             db.session.add(admin)
