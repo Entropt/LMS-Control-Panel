@@ -1,16 +1,19 @@
 # app.py - Flask application entry point
 import base64
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash, Response
+from urllib.parse import urljoin
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash, Response, make_response
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import os
 from datetime import timedelta
 from dotenv import load_dotenv
 from functools import wraps
+import requests
 
 # Import our modules
 from api.lms_client import LMSClient
 from models.user import db, User, initialize_db
 from config.settings import load_config
+from api.course_client import CourseClient
 
 # Load environment variables
 load_dotenv()
@@ -36,8 +39,8 @@ config = load_config()
 
 # Initialize API client with default empty token (will be set per user)
 lms_client = LMSClient(
-    base_url=config.get('api', {}).get('base_url', '') or os.getenv('LMS_API_URL', 'https://192.168.246.129/api/v1'),
-    api_key=''  # Will be set on a per-request basis from the user's token
+    base_url=config.get('api', {}).get('base_url'),
+    api_key=config.get('api', {}).get('api_key')  # Will be set on a per-request basis from the user's token
 )
 
 # User loader for Flask-Login
@@ -61,7 +64,7 @@ def set_api_token():
     if current_user.is_authenticated and current_user.canvas_api_token:
         # Create a new client instance with user's token
         app.config['lms_client'] = LMSClient(
-            base_url=config.get('api', {}).get('base_url', '') or os.getenv('LMS_API_URL', 'https://192.168.246.129/api/v1'),
+            base_url=config.get('api', {}).get('base_url', ''),
             api_key=current_user.canvas_api_token
         )
     else:
@@ -74,16 +77,25 @@ def index():
     if current_user.is_authenticated and current_user.is_admin:
         return redirect(url_for('dashboard'))
     
-    return redirect(url_for('login'))
+    return redirect(url_for('assignment_login'))
 
 # Add these routes to app.py for the JavaScript approach
 
-@app.route('/assignment-login')
+@app.route('/assignment-login', methods=['GET', 'POST'])
 def assignment_login():
     """Assignment login page using JavaScript approach"""
-    # Get the Juice Shop URL from config
-    juice_shop_url = app.config.get('JUICE_SHOP_URL', 'http://localhost:3000')
-    return render_template('assignment_login.html', juice_shop_url=juice_shop_url)
+    if request.method == 'POST':
+        email = request.form.get('email')
+        
+        for course_id in CourseClient.get_courses:
+            if CourseClient.is_student_in_course_by_id(course_id=course_id, student_email=email):
+                # Add course_id to cookie and break
+                url_for('reverse_proxy')
+                break
+    else:
+        # Get the Juice Shop URL from config
+        juice_shop_url = app.config.get('JUICE_SHOP_URL')
+        return render_template('assignment_login.html', juice_shop_url=juice_shop_url)
 
 @app.route('/log-assignment-access', methods=['POST'])
 def log_assignment_access_route():
@@ -120,6 +132,9 @@ def login():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
         
+    error_message = None
+    status_code = 200
+        
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
@@ -136,9 +151,12 @@ def login():
             else:
                 return redirect(app.config['JUICE_SHOP_URL'])
         else:
-            flash('Invalid email or password', 'danger')
+            error_message = 'Invalid email or password'
+            status_code = 401
             
-    return render_template('login.html')
+    response = make_response(render_template('login.html', error_message=error_message))
+    response.status_code = status_code
+    return response
 
 @app.route('/logout')
 @login_required
@@ -161,6 +179,8 @@ def user_management():
 def get_courses():
     """API endpoint to get courses"""
     lms_client = app.config['lms_client']
+    
+    print(lms_client)
     courses = lms_client.courses.get_courses()
     return jsonify(courses)
 
@@ -259,6 +279,63 @@ def delete_user(user_id):
     db.session.commit()
     
     return jsonify({'success': True})
+
+@app.route('/assignment', defaults={'path': ''})
+@app.route('/assignment/<path:path>')
+def reverse_proxy(path):
+    """
+    Reverse proxy route that forwards requests to Juice Shop
+    """
+    # Target Juice Shop URL
+    target_url = os.getenv('JUICE_SHOP_URL')
+    
+    # Construct the full URL by joining the target URL with the requested path
+    url = urljoin(target_url, path)
+    
+    # Get the request method (GET, POST, etc.)
+    method = request.method
+    
+    # Get the headers from the original request, but exclude some
+    # that would cause issues with the proxied request
+    excluded_headers = ['host', 'content-length', 'connection']
+    headers = {key: value for key, value in request.headers.items()
+               if key.lower() not in excluded_headers}
+    
+    # Forward the request to the target URL
+    try:
+        if method == 'GET':
+            resp = requests.get(url, params=request.args, headers=headers, 
+                               cookies=request.cookies, stream=True)
+        elif method == 'POST':
+            resp = requests.post(url, data=request.get_data(), headers=headers, 
+                                cookies=request.cookies, stream=True)
+        elif method == 'PUT':
+            resp = requests.put(url, data=request.get_data(), headers=headers, 
+                               cookies=request.cookies, stream=True)
+        elif method == 'DELETE':
+            resp = requests.delete(url, headers=headers, cookies=request.cookies, 
+                                  stream=True)
+        elif method == 'OPTIONS':
+            resp = requests.options(url, headers=headers, cookies=request.cookies, 
+                                   stream=True)
+        else:
+            # For other methods, just return a method not allowed response
+            return Response(f"Method {method} not allowed", status=405)
+        
+        # Create a Flask Response object from the requests response
+        response = Response(resp.iter_content(chunk_size=10*1024), 
+                           status=resp.status_code)
+        
+        # Copy headers from the requests response to the Flask response
+        for key, value in resp.headers.items():
+            if key.lower() not in ['content-encoding', 'transfer-encoding', 'content-length']:
+                response.headers[key] = value
+                
+        return response
+        
+    except requests.exceptions.RequestException as e:
+        # Handle any errors when connecting to the Juice Shop
+        return Response(f"Error connecting to Juice Shop: {str(e)}", status=500)
 
 if __name__ == '__main__':
     initialize_db(app)  # Initialize database with default admin user

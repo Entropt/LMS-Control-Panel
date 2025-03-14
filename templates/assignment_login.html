@@ -8,7 +8,7 @@
     <div class="sm:mx-auto sm:w-full sm:max-w-md">
         <h2 class="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">Assignment Access</h2>
         <p class="mt-2 text-center text-sm text-gray-600">
-            Please enter your username to access the assignment
+            Please enter your email to access the assignment
         </p>
     </div>
 
@@ -16,9 +16,9 @@
         <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
             <div class="space-y-6">
                 <div>
-                    <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+                    <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
                     <div class="mt-1">
-                        <input id="username" name="username" type="text" required
+                        <input id="email" name="email" type="text" required
                             class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm">
                     </div>
                 </div>
@@ -35,11 +35,11 @@
 
 <script>
     document.getElementById('submit-btn').addEventListener('click', function () {
-        const username = document.getElementById('username').value;
+        const email = document.getElementById('email').value;
 
-        if (username) {
-            // Store the username in localStorage if needed
-            localStorage.setItem('student_username', username);
+        if (email) {
+            // Store the email in localStorage if needed
+            localStorage.setItem('student_email', email);
 
             // Log access via AJAX (optional)
             /*
@@ -48,14 +48,14 @@
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ username: username }),
+                body: JSON.stringify({ email: email }),
             });
             */
 
             // Redirect to Juice Shop
             window.location.href = '{{ juice_shop_url }}';
         } else {
-            alert('Please enter your username');
+            alert('Please enter your email');
         }
     });
 </script>
