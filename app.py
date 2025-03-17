@@ -15,6 +15,12 @@ from models.user import db, User, initialize_db
 from config.settings import load_config
 from api.course_client import CourseClient
 
+# Import LTI modules
+from models.lti_config import LTIConfig
+
+# Define lti_service as a global variable
+lti_service = None
+
 # Load environment variables
 load_dotenv()
 
@@ -42,6 +48,23 @@ lms_client = LMSClient(
     base_url=config.get('api', {}).get('base_url'),
     api_key=config.get('api', {}).get('api_key')  # Will be set on a per-request basis from the user's token
 )
+
+# Import the routes after app is created to avoid circular imports
+from services.lti_service import LTIService
+from routes.lti_routes import init_lti_routes, lti_blueprint
+from routes.flag_routes import init_flag_routes, flag_blueprint
+
+# Initialize LTI service
+lti_service = LTIService(app)
+app.config['lti_service'] = lti_service
+
+# Initialize routes
+init_lti_routes(app)
+init_flag_routes(app)
+
+# Register blueprints
+app.register_blueprint(lti_blueprint, url_prefix='/lti')
+app.register_blueprint(flag_blueprint)
 
 # User loader for Flask-Login
 @login_manager.user_loader
@@ -76,6 +99,21 @@ def index():
     """Main dashboard page (redirect based on user role)"""
     if current_user.is_authenticated and current_user.is_admin:
         return redirect(url_for('dashboard'))
+    
+    # Check if there's an active LTI session
+    lti_session_id = session.get('lti_session_id')
+    if lti_session_id:
+        # Get LTI service from app context
+        lti_service = app.config.get('lti_service')
+        if lti_service:
+            # Get launch data from session
+            launch_data = lti_service.get_launch_data(lti_session_id)
+            if launch_data:
+                # Check if the user is a student
+                is_student = any(role.endswith('/Learner') for role in launch_data.get('roles', []))
+                if is_student:
+                    # Redirect to Juice Shop
+                    return redirect(app.config['JUICE_SHOP_URL'])
     
     return redirect(url_for('assignment_login'))
 
@@ -172,6 +210,13 @@ def user_management():
     """User management page"""
     users = User.query.all()
     return render_template('users.html', users=users)
+
+@app.route('/lti-setup')
+@login_required
+@admin_required
+def lti_setup_redirect():
+    """Redirect to LTI setup page"""
+    return redirect(url_for('lti.lti_setup'))
 
 @app.route('/api/courses')
 @login_required
@@ -338,5 +383,7 @@ def reverse_proxy(path):
         return Response(f"Error connecting to Juice Shop: {str(e)}", status=500)
 
 if __name__ == '__main__':
-    initialize_db(app)  # Initialize database with default admin user
+    with app.app_context():
+        db.create_all()  # Create all tables
+        initialize_db(app)  # Initialize database with default admin user
     app.run(debug=True)

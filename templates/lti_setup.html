@@ -1,0 +1,159 @@
+<!-- templates/lti_setup.html -->
+{% extends "base.html" %}
+
+{% block title %}LTI Setup | LMS Control Panel{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+        <h1 class="text-2xl font-bold text-gray-900 mb-6">LTI Tool Configuration</h1>
+        
+        {% if success %}
+        <div class="mb-4 p-4 bg-green-50 text-green-700 rounded-md">
+            LTI configuration successfully saved!
+        </div>
+        {% endif %}
+        
+        <div class="grid grid-cols-1 gap-6 mb-8">
+            <div class="bg-blue-50 p-4 rounded-md">
+                <h2 class="text-lg font-medium text-blue-800 mb-2">Setup Instructions</h2>
+                <ol class="list-decimal pl-5 text-blue-700">
+                    <li class="mb-2">In Canvas, go to Account &gt; Settings &gt; Developer Keys &gt; + Developer Key &gt; + LTI Key</li>
+                    <li class="mb-2">Use the JSON configuration below in Canvas:</li>
+                    <div class="bg-white p-3 rounded shadow-inner overflow-auto max-h-40 mb-2">
+                        <pre id="configJson">{{ lti_service.get_tool_configuration() | tojson(indent=2) }}</pre>
+                    </div>
+                    <button class="text-sm bg-blue-600 text-white px-3 py-1 rounded" onclick="copyToClipboard('configJson')">Copy JSON</button>
+                    <li class="mt-2">After saving, note the Client ID from Canvas and fill out the form below</li>
+                    <li>In Canvas, go to your course &gt; Settings &gt; Apps &gt; View App Configurations &gt; + App &gt; By Client ID</li>
+                </ol>
+            </div>
+            
+            <form method="POST" action="{{ url_for('lti.lti_setup') }}" class="space-y-6">
+                <div class="bg-white p-6 rounded-md shadow">
+                    <h2 class="text-lg font-medium text-gray-900 mb-4">Canvas LTI Configuration</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="client_id" class="block text-sm font-medium text-gray-700">Client ID</label>
+                            <input type="text" id="client_id" name="client_id" required
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                   value="{{ config.client_id if config else '' }}">
+                            <p class="mt-1 text-sm text-gray-500">From Canvas Developer Key</p>
+                        </div>
+                        
+                        <div>
+                            <label for="deployment_id" class="block text-sm font-medium text-gray-700">Deployment ID</label>
+                            <input type="text" id="deployment_id" name="deployment_id" required
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                   value="{{ config.deployment_id if config else '1' }}">
+                            <p class="mt-1 text-sm text-gray-500">Usually "1" for Canvas</p>
+                        </div>
+                        
+                        <div>
+                            <label for="auth_login_url" class="block text-sm font-medium text-gray-700">Authorization Login URL</label>
+                            <input type="url" id="auth_login_url" name="auth_login_url" required
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                   value="{{ config.auth_login_url if config else default_auth_login_url }}">
+                        </div>
+                        
+                        <div>
+                            <label for="auth_token_url" class="block text-sm font-medium text-gray-700">Authentication Token URL</label>
+                            <input type="url" id="auth_token_url" name="auth_token_url" required
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                   value="{{ config.auth_token_url if config else default_auth_token_url }}">
+                        </div>
+                        
+                        <div>
+                            <label for="key_set_url" class="block text-sm font-medium text-gray-700">Key Set URL</label>
+                            <input type="url" id="key_set_url" name="key_set_url" required
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                   value="{{ config.key_set_url if config else default_key_set_url }}">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white p-6 rounded-md shadow">
+                    <h2 class="text-lg font-medium text-gray-900 mb-4">Tool Settings</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="tool_name" class="block text-sm font-medium text-gray-700">Tool Name</label>
+                            <input type="text" id="tool_name" name="tool_name" required
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                   value="{{ config.tool_name if config else 'Juice Shop Integration' }}">
+                        </div>
+                        
+                        <div>
+                            <label for="tool_description" class="block text-sm font-medium text-gray-700">Tool Description</label>
+                            <input type="text" id="tool_description" name="tool_description" required
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                   value="{{ config.tool_description if config else 'Security training platform integration' }}">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end">
+                    <button type="submit"
+                            class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Save Configuration
+                    </button>
+                </div>
+            </form>
+            
+            {% if config %}
+            <div class="bg-white p-6 rounded-md shadow">
+                <h2 class="text-lg font-medium text-gray-900 mb-4">Important URLs</h2>
+                
+                <div class="overflow-hidden bg-gray-50 rounded-md shadow">
+                    <div class="px-4 py-5 sm:p-6">
+                        <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                            <div class="sm:col-span-1">
+                                <dt class="text-sm font-medium text-gray-500">Login URL</dt>
+                                <dd class="mt-1 text-sm text-gray-900">{{ url_for('lti.lti_login', _external=True) }}</dd>
+                            </div>
+                            
+                            <div class="sm:col-span-1">
+                                <dt class="text-sm font-medium text-gray-500">Launch URL</dt>
+                                <dd class="mt-1 text-sm text-gray-900">{{ url_for('lti.lti_launch', _external=True) }}</dd>
+                            </div>
+                            
+                            <div class="sm:col-span-1">
+                                <dt class="text-sm font-medium text-gray-500">JWKS URL</dt>
+                                <dd class="mt-1 text-sm text-gray-900">{{ url_for('lti.lti_jwks', _external=True) }}</dd>
+                            </div>
+                            
+                            <div class="sm:col-span-1">
+                                <dt class="text-sm font-medium text-gray-500">Deep Linking URL</dt>
+                                <dd class="mt-1 text-sm text-gray-900">{{ url_for('lti.lti_deep_linking', _external=True) }}</dd>
+                            </div>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    function copyToClipboard(elementId) {
+        const el = document.getElementById(elementId);
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        document.execCommand('copy');
+        selection.removeAllRanges();
+        
+        // Show feedback
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = 'Copied!';
+        setTimeout(() => {
+            button.textContent = originalText;
+        }, 2000);
+    }
+</script>
+{% endblock %}

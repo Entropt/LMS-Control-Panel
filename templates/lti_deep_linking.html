@@ -1,0 +1,168 @@
+<!-- templates/lti_deep_linking.html -->
+{% extends "base.html" %}
+
+{% block title %}Select Juice Shop Exercise{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg" x-data="{ 
+    exercises: [
+        { 
+            id: 'score-board', 
+            title: 'Score Board Challenge', 
+            description: 'Find the score board page that is not directly accessible from the menu.',
+            difficulty: 'Easy',
+            category: 'Information Leakage'
+        },
+        { 
+            id: 'xss', 
+            title: 'XSS Vulnerability', 
+            description: 'Perform a reflected XSS attack on the search field.',
+            difficulty: 'Medium',
+            category: 'XSS'
+        },
+        { 
+            id: 'injection', 
+            title: 'SQL Injection', 
+            description: 'Log in as admin using SQL injection techniques.',
+            difficulty: 'Medium',
+            category: 'Injection'
+        },
+        { 
+            id: 'broken-auth', 
+            title: 'Broken Authentication', 
+            description: 'Reset the password of another user.',
+            difficulty: 'Hard',
+            category: 'Authentication'
+        },
+        { 
+            id: 'missing-security-headers', 
+            title: 'Security Headers', 
+            description: 'Identify missing security headers in the application.',
+            difficulty: 'Easy',
+            category: 'Security Misconfiguration'
+        }
+    ],
+    selectedExercise: null,
+    
+    selectExercise(exercise) {
+        this.selectedExercise = exercise;
+    },
+    
+    submitSelection() {
+        if (!this.selectedExercise) {
+            alert('Please select an exercise first');
+            return;
+        }
+        
+        // This is where we'd send the deep linking response back to Canvas
+        const form = document.getElementById('deep-linking-form');
+        
+        // Set the content item data
+        document.getElementById('content-item').value = JSON.stringify({
+            type: 'ltiResourceLink',
+            title: this.selectedExercise.title,
+            url: `{{ url_for('lti.lti_launch', _external=True) }}?exercise=${this.selectedExercise.id}`,
+            custom: {
+                exercise_id: this.selectedExercise.id
+            }
+        });
+        
+        // Submit the form back to Canvas
+        form.submit();
+    }
+}">
+    <div class="px-4 py-5 sm:p-6">
+        <h1 class="text-2xl font-bold text-gray-900 mb-6">Select Juice Shop Exercise</h1>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Exercise list panel -->
+            <div class="bg-white rounded-lg shadow md:col-span-2">
+                <div class="p-4 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-lg font-medium text-gray-900">Available Exercises</h2>
+                    </div>
+                </div>
+                
+                <!-- Exercise list -->
+                <div class="overflow-y-auto max-h-96">
+                    <ul class="divide-y divide-gray-200">
+                        <template x-for="exercise in exercises" :key="exercise.id">
+                            <li class="p-4 hover:bg-gray-50 cursor-pointer" 
+                                :class="{'bg-indigo-50': selectedExercise && selectedExercise.id === exercise.id}"
+                                @click="selectExercise(exercise)">
+                                <div class="flex justify-between">
+                                    <div>
+                                        <h3 class="text-sm font-medium text-gray-900" x-text="exercise.title"></h3>
+                                        <p class="text-sm text-gray-500" x-text="exercise.description"></p>
+                                    </div>
+                                    <div>
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                                              :class="{
+                                                  'bg-green-100 text-green-800': exercise.difficulty === 'Easy',
+                                                  'bg-yellow-100 text-yellow-800': exercise.difficulty === 'Medium',
+                                                  'bg-red-100 text-red-800': exercise.difficulty === 'Hard'
+                                              }"
+                                              x-text="exercise.difficulty">
+                                        </span>
+                                    </div>
+                                </div>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Selected exercise details -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="p-4 border-b border-gray-200">
+                    <h2 class="text-lg font-medium text-gray-900">Exercise Details</h2>
+                </div>
+                
+                <div class="p-4">
+                    <div x-show="!selectedExercise" class="text-center text-gray-500 py-8">
+                        <p>Select an exercise to see details</p>
+                    </div>
+                    
+                    <div x-show="selectedExercise" class="space-y-4">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900" x-text="selectedExercise?.title"></h3>
+                            <p class="mt-1 text-sm text-gray-500" x-text="selectedExercise?.description"></p>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4 pt-4">
+                            <div>
+                                <span class="text-sm font-medium text-gray-500">Difficulty:</span>
+                                <span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                                      :class="{
+                                          'bg-green-100 text-green-800': selectedExercise?.difficulty === 'Easy',
+                                          'bg-yellow-100 text-yellow-800': selectedExercise?.difficulty === 'Medium',
+                                          'bg-red-100 text-red-800': selectedExercise?.difficulty === 'Hard'
+                                      }"
+                                      x-text="selectedExercise?.difficulty">
+                                </span>
+                            </div>
+                            
+                            <div>
+                                <span class="text-sm font-medium text-gray-500">Category:</span>
+                                <span class="ml-2 text-sm text-gray-700" x-text="selectedExercise?.category"></span>
+                            </div>
+                        </div>
+                        
+                        <div class="pt-4">
+                            <button @click="submitSelection()" class="w-full px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                Add to Canvas
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Hidden form for deep linking response -->
+        <form id="deep-linking-form" method="POST" action="{{ launch_data.return_url }}" class="hidden">
+            <input type="hidden" name="JWT" value="{{ launch_data.jwt }}">
+            <input type="hidden" id="content-item" name="content_items" value="">
+        </form>
+    </div>
+</div>
+{% endblock %}
