@@ -1,0 +1,12 @@
+# Debugger
+.vscode
+
+# Ignore environmental variables and config
+.env
+config/config.json
+
+# Ignore database
+instance
+
+# Ignore cache
+*/__pycache__/*
