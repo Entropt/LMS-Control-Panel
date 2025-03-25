@@ -81,6 +81,7 @@ class CourseClient(BaseLMSClient):
             print(f"Error fetching sections for course {course_id}: {e}")
             return []
         
+    # Updated method for CourseClient class
     def is_student_in_course_by_id(self, course_id: str, student_email: str) -> bool:
         """
         Check if a student with the given email is enrolled in the specified course
@@ -88,16 +89,15 @@ class CourseClient(BaseLMSClient):
         Args:
             course_id: ID of the course to check
             student_email: Email address to check against enrolled students
-            api_token: Canvas API token for authentication
             
         Returns:
             bool: True if the student is enrolled, False otherwise
         """
         try:
-            response = self.get(f"/courses/{course_id}/users?include[]=enrollments&per_page=200")
-            response.raise_for_status()
+            # The get method already returns the parsed JSON data
+            users = self.get(f"/courses/{course_id}/users?include[]=enrollments&per_page=200")
             
-            users = response.json()
+            # users is already a list of user objects
             for user in users:
                 # Check the email field
                 if user.get("email") and user["email"].lower() == student_email.lower():
@@ -110,5 +110,4 @@ class CourseClient(BaseLMSClient):
             return False
         except requests.exceptions.RequestException as e:
             print(f"Error fetching students for course {course_id}: {e}")
-            return []
-            
+            return False

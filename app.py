@@ -14,6 +14,7 @@ from api.lms_client import LMSClient
 from models.user import db, User, initialize_db
 from config.settings import load_config
 from api.course_client import CourseClient
+from models.exercise import log_exercise_attempt, complete_exercise_attempt, get_student_exercise_attempts
 
 # Load environment variables
 load_dotenv()
@@ -21,10 +22,10 @@ load_dotenv()
 # Initialize Flask app
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI', 'sqlite:///lms_control.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
-app.config['JUICE_SHOP_URL'] = os.getenv('JUICE_SHOP_URL', 'http://localhost:3000')
+app.config['JUICE_SHOP_URL'] = os.getenv('JUICE_SHOP_URL')
 
 # Initialize database
 db.init_app(app)
@@ -81,21 +82,329 @@ def index():
 
 # Add these routes to app.py for the JavaScript approach
 
+# Add these imports at the top of app.py if not already there
+
+# Add this function to check if a user is a student
+def is_student(email, course_id=None):
+    """
+    Check if the given email belongs to a student, optionally in a specific course
+    
+    Args:
+        email: The email to check
+        course_id: Optional course ID to check enrollment for
+        
+    Returns:
+        bool: True if the user is a student, False otherwise
+    """
+    client = app.config['lms_client']
+    if course_id:
+        return client.courses.is_student_in_course_by_id(course_id, email)
+    
+    # Check if they're a student in any course
+    courses = client.courses.get_courses()
+    for course in courses:
+        if client.courses.is_student_in_course_by_id(course['id'], email):
+            return True
+    return False
+
+# Update the student_portal route to ensure proper authorization
+@app.route('/student')
+def student_portal():
+    """Student portal page"""
+    if 'student_email' not in session:
+        return redirect(url_for('assignment_login'))
+    
+    return render_template('student_exercise.html')
+
+# Update the API endpoint to get student courses with proper validation
+@app.route('/api/student/courses')
+def get_student_courses():
+    """API endpoint to get courses for the logged-in student"""
+    if 'student_email' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    
+    email = session['student_email']
+    lms_client = app.config['lms_client']
+    
+    # Get all courses
+    all_courses = lms_client.courses.get_courses()
+    enrolled_courses = []
+    
+    # Filter courses where the student is enrolled
+    for course in all_courses:
+        if lms_client.courses.is_student_in_course_by_id(course['id'], email):
+            enrolled_courses.append(course)
+    
+    # Update the enrolled courses in session
+    session['enrolled_courses'] = [course['id'] for course in enrolled_courses]
+    
+    return jsonify(enrolled_courses)
+
+@app.route('/api/student/courses/<course_id>/exercises')
+def get_student_exercises(course_id):
+    """API endpoint to get exercises for a student in a specific course"""
+    if 'student_email' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    
+    # Verify the student is enrolled in this course
+    lms_client = app.config['lms_client']
+    if not lms_client.courses.is_student_in_course_by_id(course_id, session['student_email']):
+        return jsonify({'error': 'Not enrolled in this course'}), 403
+    
+    exercises = lms_client.assignments.get_student_exercises(course_id)
+    return jsonify(exercises)
+
+# Replace the log_student_exercise_access function in app.py
+@app.route('/api/student/log-exercise-access', methods=['POST'])
+def log_student_exercise_access():
+    """API endpoint to log student exercise access with validation"""
+    if 'student_email' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    
+    if not request.is_json:
+        return jsonify({"error": "Invalid request"}), 400
+        
+    data = request.json
+    course_id = data.get('course_id')
+    exercise_id = data.get('exercise_id')
+    
+    if not course_id or not exercise_id:
+        return jsonify({"error": "Missing required fields"}), 400
+    
+    # Ensure the student is enrolled in this course
+    lms_client = app.config['lms_client']
+    if not lms_client.courses.is_student_in_course_by_id(
+        course_id, 
+        session['student_email']
+    ):
+        return jsonify({'error': 'Not enrolled in this course'}), 403
+    
+    # Verify this exercise exists in the course
+    course_exercises = lms_client.assignments.get_student_exercises(course_id)
+    exercise_exists = False
+    
+    for exercise in course_exercises:
+        if str(exercise['id']) == str(exercise_id):
+            exercise_exists = True
+            break
+    
+    if not exercise_exists:
+        return jsonify({'error': 'Exercise not found or not available'}), 404
+    
+    # All validation passed - log the exercise attempt
+    from models.exercise import log_exercise_attempt
+    log_exercise_attempt(
+        student_email=session['student_email'],
+        course_id=course_id,
+        exercise_id=exercise_id
+    )
+    
+    # Set the current exercise in the session
+    session['current_exercise'] = exercise_id
+    session['current_course'] = course_id
+    
+    return jsonify({"success": True, "redirectUrl": f"/assignment/{exercise_id}"})
+
+@app.route('/api/student/exercise-history')
+def get_exercise_history():
+    """API endpoint to get exercise history for a student"""
+    if 'student_email' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    
+    course_id = request.args.get('course_id')
+    attempts = get_student_exercise_attempts(
+        student_email=session['student_email'],
+        course_id=course_id
+    )
+    
+    return jsonify([attempt.to_dict() for attempt in attempts])
+
+@app.route('/student-progress')
+@login_required
+@admin_required
+def student_progress():
+    """Student progress page for teachers/admins"""
+    return render_template('student_progress.html')
+
+@app.route('/api/courses/<course_id>/students')
+@login_required
+@admin_required
+def get_course_students(course_id):
+    """API endpoint to get students for a course"""
+    lms_client = app.config['lms_client']
+    students = lms_client.users.get_course_students(course_id, "student")
+    return jsonify(students)
+
+@app.route('/api/courses/<course_id>/progress')
+@login_required
+@admin_required
+def get_course_progress(course_id):
+    """API endpoint to get progress data for all students in a course"""
+    from models.exercise import ExerciseAttempt
+    
+    # Get all attempts for the given course
+    attempts = ExerciseAttempt.query.filter_by(course_id=course_id).all()
+    
+    return jsonify([attempt.to_dict() for attempt in attempts])
+
+# Replace the assignment_login route with this corrected version
 @app.route('/assignment-login', methods=['GET', 'POST'])
 def assignment_login():
-    """Assignment login page using JavaScript approach"""
+    """Assignment login page using server-side validation"""
+    # If already logged in as a student, redirect to student portal
+    if 'student_email' in session:
+        return redirect(url_for('student_portal'))
+        
+    error_message = None
+    
     if request.method == 'POST':
         email = request.form.get('email')
         
-        for course_id in CourseClient.get_courses:
-            if CourseClient.is_student_in_course_by_id(course_id=course_id, student_email=email):
-                # Add course_id to cookie and break
-                url_for('reverse_proxy')
-                break
+        if not email:
+            error_message = "Email is required"
+            return render_template('assignment_login.html', 
+                                  error_message=error_message,
+                                  juice_shop_url=app.config.get('JUICE_SHOP_URL'))
+        
+        # Initialize LMS client with default token
+        lms_client = app.config['lms_client']
+        
+        # Check if the email belongs to a student in any course
+        student_enrolled = False
+        enrolled_courses = []
+        courses = lms_client.courses.get_courses()
+        
+        for course in courses:
+            if lms_client.courses.is_student_in_course_by_id(course['id'], email):
+                student_enrolled = True
+                enrolled_courses.append(course)
+        
+        if student_enrolled:
+            # Store the student email in session
+            session['student_email'] = email
+            session['enrolled_courses'] = [course['id'] for course in enrolled_courses]
+            return redirect(url_for('student_portal'))
+        else:
+            # Not a valid student email
+            error_message = "Email not found or not enrolled as a student in any course"
+            return render_template('assignment_login.html', 
+                                  error_message=error_message,
+                                  juice_shop_url=app.config.get('JUICE_SHOP_URL'))
     else:
         # Get the Juice Shop URL from config
         juice_shop_url = app.config.get('JUICE_SHOP_URL')
         return render_template('assignment_login.html', juice_shop_url=juice_shop_url)
+
+# Update the proxy_exercise route with strong validation
+@app.route('/assignment/<exercise_id>')
+def proxy_exercise(exercise_id):
+    """
+    Proxy route that forwards requests to Juice Shop for a specific exercise
+    """
+    if 'student_email' not in session:
+        return redirect(url_for('assignment_login'))
+    
+    # Check if user has a current course and exercise
+    if 'current_course' not in session or 'current_exercise' not in session:
+        return redirect(url_for('student_portal'))
+    
+    # Verify that current_exercise matches the requested exercise
+    if session['current_exercise'] != exercise_id:
+        return redirect(url_for('student_portal'))
+    
+    # Verify the student is enrolled in the current course
+    lms_client = app.config['lms_client']
+    if not lms_client.courses.is_student_in_course_by_id(
+        session['current_course'], 
+        session['student_email']
+    ):
+        # If not enrolled, clear session and redirect to login
+        session.pop('current_course', None)
+        session.pop('current_exercise', None)
+        return redirect(url_for('assignment_login'))
+    
+    # Verify this exercise exists in the course
+    course_exercises = lms_client.assignments.get_student_exercises(session['current_course'])
+    exercise_exists = False
+    
+    for exercise in course_exercises:
+        if str(exercise['id']) == str(exercise_id):
+            exercise_exists = True
+            break
+    
+    if not exercise_exists:
+        return jsonify({'error': 'Exercise not found or not available'}), 404
+    
+    # Target Juice Shop URL
+    target_url = os.getenv('JUICE_SHOP_URL')
+    
+    # Log the access attempt
+    from models.exercise import log_exercise_attempt
+    log_exercise_attempt(
+        student_email=session['student_email'],
+        course_id=session['current_course'],
+        exercise_id=exercise_id
+    )
+    
+    # Forward to Juice Shop with tracking cookies
+    response = make_response(redirect(target_url))
+    response.set_cookie('ctf_exercise_id', exercise_id)
+    response.set_cookie('ctf_student_email', session['student_email'])
+    response.set_cookie('ctf_course_id', session['current_course'])
+    
+    return response
+
+@app.route('/api/webhook/flag-submission', methods=['POST'])
+def flag_submission_webhook():
+    """
+    Webhook endpoint for receiving flag submissions from Juice Shop
+    This can be called by Juice Shop when a flag is submitted
+    """
+    if not request.is_json:
+        return jsonify({"error": "Invalid request"}), 400
+        
+    data = request.json
+    
+    # Expected format:
+    # {
+    #   "student_email": "student@example.com",
+    #   "exercise_id": "123",
+    #   "course_id": "456", 
+    #   "flag": "submitted flag",
+    #   "is_correct": true/false,
+    #   "score": 100
+    # }
+    
+    required_fields = ['student_email', 'exercise_id', 'course_id', 'is_correct']
+    if not all(field in data for field in required_fields):
+        return jsonify({"error": "Missing required fields"}), 400
+    
+    # If the flag is correct, mark the exercise as completed
+    if data.get('is_correct', False):
+        complete_exercise_attempt(
+            student_email=data['student_email'],
+            course_id=data['course_id'],
+            exercise_id=data['exercise_id'],
+            score=data.get('score', 100)
+        )
+    
+    return jsonify({"success": True})
+
+# @app.route('/assignment-login', methods=['GET', 'POST'])
+# def assignment_login():
+#     """Assignment login page using JavaScript approach"""
+#     if request.method == 'POST':
+#         email = request.form.get('email')
+        
+#         for course_id in CourseClient.get_courses:
+#             if CourseClient.is_student_in_course_by_id(course_id=course_id, student_email=email):
+#                 # Add course_id to cookie and break
+#                 url_for('reverse_proxy')
+#                 break
+#     else:
+#         # Get the Juice Shop URL from config
+#         juice_shop_url = app.config.get('JUICE_SHOP_URL')
+#         return render_template('assignment_login.html', juice_shop_url=juice_shop_url)
 
 @app.route('/log-assignment-access', methods=['POST'])
 def log_assignment_access_route():
