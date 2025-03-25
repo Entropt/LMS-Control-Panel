@@ -1,0 +1,6 @@
+{
+    "api": {
+      "base_url": "http://canvas.docker/api/v1",
+      "api_key": "<api_key>"
+    }
+  }
