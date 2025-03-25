@@ -33,12 +33,14 @@ A web application to manage Canvas LMS courses and assignments through the Canva
    pip install -r requirements.txt
    ```
 
-4. Create a `.env` file with your Canvas LMS settings:
+4. Create a `config/config.json` file with your Canvas LMS settings:
    ```
-   SECRET_KEY=your-secret-key-here
-   FLASK_ENV=development
-   LMS_API_URL=https://your-canvas-instance.com/api/v1
-   LMS_API_TOKEN=your-canvas-api-token
+   {
+      "api": {
+         "base_url": "http://canvas.docker/api/v1",
+         "api_key": "<api_key>"
+      }
+   }
    ```
 
    To get your Canvas API token:
@@ -47,6 +49,8 @@ A web application to manage Canvas LMS courses and assignments through the Canva
    3. Scroll down to "Approved Integrations"
    4. Click "New Access Token"
    5. Copy the generated token
+
+5. Change `.env` file settings to the url of your selected site.
 
 ## Running the Application
 
